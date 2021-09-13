@@ -18,9 +18,16 @@ public class AssetLibrary : MonoBehaviour
 
     public delegate void AssetEvent(GameObject asset);
 
+    public delegate void TextureEvent(Texture2D texture);
+    Dictionary<string, List<TextureEvent>> onTextureLoadedListeners= new Dictionary<string, List<TextureEvent>>();
+    List<string> textureLoading=new List<string>();
+
+
     public delegate void AssetListCallback(string[] list);
 
     Queue<string> bundleQueue=new Queue<string>();
+    Queue<string> textureQueue=new Queue<string>();
+
 
     void Start()
     {
@@ -34,6 +41,13 @@ public class AssetLibrary : MonoBehaviour
     {
         if(bundleQueue.Count>0){
             StartCoroutine(GetAssetBundle(bundleQueue.Dequeue()));
+            return;
+        }
+
+
+        if(textureQueue.Count>0){
+            StartCoroutine(GetTexture(textureQueue.Dequeue()));
+            return;
         }
 
     }
@@ -125,4 +139,54 @@ public class AssetLibrary : MonoBehaviour
             onBundleLoadedListeners.Remove(bundleName);
         }
     }
+
+
+    public void LoadTexture(string textureName, TextureEvent callback){
+
+
+
+
+
+        if(!textureLoading.Contains(textureName)){
+            onTextureLoadedListeners.Add(textureName, new List<TextureEvent>());
+            textureLoading.Add(textureName);
+            textureQueue.Enqueue(textureName);
+        }
+
+        onTextureLoadedListeners[textureName].Add(callback);
+
+       
+    
+
+        
+
+    }
+
+    IEnumerator GetTexture(string textureName) {
+        UnityWebRequest textureRequest = UnityWebRequestTexture.GetTexture(url+"/"+textureName);
+        yield return textureRequest.SendWebRequest();
+
+
+        if (textureRequest.result != UnityWebRequest.Result.Success) {
+            Debug.Log(textureRequest.error);
+        }
+        else {
+
+            Texture2D texture = (Texture2D) DownloadHandlerTexture.GetContent(textureRequest);
+
+            textureLoading.Remove(textureName);
+            foreach(TextureEvent listener in onTextureLoadedListeners[textureName]){
+                listener(texture);
+            }
+            onTextureLoadedListeners.Remove(textureName);
+
+        }
+    }
+
+
+
+
+
+
+
 }
